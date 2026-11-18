@@ -1,0 +1,86 @@
+{
+  "name": "nife-computer-use",
+  "version": "0.0.1",
+  "description": "Nife extension that lets AI agents observe and control Windows desktop apps.",
+  "type": "module",
+  "keywords": [
+    "pi-package",
+    "nife-package",
+    "computer-use",
+    "windows",
+    "desktop-automation",
+    "ui-automation",
+    "wsl"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OliverMao/nife-computer-use.git"
+  },
+  "bugs": {
+    "url": "https://github.com/OliverMao/nife-computer-use/issues"
+  },
+  "homepage": "https://github.com/OliverMao/nife-computer-use#readme",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "files": [
+    "extensions",
+    "src",
+    "scripts/build-native.mjs",
+    "scripts/setup-helper.mjs",
+    "native/windows/bridge-rs/Cargo.lock",
+    "native/windows/bridge-rs/Cargo.toml",
+    "native/windows/bridge-rs/src",
+    "native/windows/bridge-rs/tests",
+    "prebuilt/windows",
+    "assets/reference/img.jpg",
+    "README.md",
+    "LICENSE",
+    "docs/content/docs"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ],
+    "image": "./assets/reference/img.jpg"
+  },
+  "scripts": {
+    "docs:generate": "tsx scripts/docs-generators/generate-tool-reference.mjs && node scripts/docs-generators/generate-source-references.mjs",
+    "docs:check": "tsx scripts/docs-generators/generate-tool-reference.mjs --check && node scripts/docs-generators/generate-source-references.mjs --check && node scripts/check-docs.mjs",
+    "docs:dev": "npm --prefix docs run dev",
+    "docs:build": "npm --prefix docs run build",
+    "docs:site:check": "npm --prefix docs run typecheck && npm --prefix docs run build",
+    "typecheck": "tsc -p tsconfig.json",
+    "test:schema": "node scripts/check-tool-schemas.mjs",
+    "test:find-params": "tsx scripts/check-find-params.mjs",
+    "test:invariants": "node scripts/check-invariants.mjs",
+    "test:lifecycle": "tsx scripts/check-session-lifecycle.mjs",
+    "test:runtime": "tsx scripts/check-runtime-concurrency.mjs",
+    "test:output": "tsx scripts/check-bounded-output.mjs",
+    "test:commits": "node scripts/check-commit-messages.mjs",
+    "test:platform": "tsx scripts/check-platform-windows.mjs",
+    "test:windows-scripts": "node scripts/check-windows-build-scripts.mjs",
+    "test:package-assets": "node scripts/check-package-assets.mjs",
+    "test:act-outcomes": "tsx scripts/check-act-outcomes.mjs",
+    "test": "npm run typecheck && npm run docs:check && npm run test:schema && npm run test:find-params && npm run test:output && npm run test:lifecycle && npm run test:runtime && npm run test:invariants && npm run test:platform && npm run test:windows-scripts",
+    "build:native": "node scripts/build-native.mjs --platform windows",
+    "build:windows": "node scripts/build-native.mjs --platform windows"
+  },
+  "peerDependencies": {
+    "nife-coding-agent": "*",
+    "typebox": "*"
+  },
+  "private": false,
+  "publishConfig": {
+    "registry": "http://192.168.151.132:4873/",
+    "access": "public"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.19",
+    "nife-coding-agent": "0.4.3",
+    "tsx": "4.22.1",
+    "typebox": "1.3.7",
+    "typescript": "5.9.3"
+  }
+}

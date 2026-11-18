@@ -1,0 +1,46 @@
+{
+  "$schema": "./reference-evidence.schema.json",
+  "schemaVersion": 1,
+  "repositoryUrl": "https://github.com/injaneity/pi-computer-use/blob/main/",
+  "pages": [
+    {
+      "key": "reference/agent/contract",
+      "outputPath": "docs/content/docs/reference/agent/contract.mdx",
+      "title": "Agent state and action contract",
+      "description": "Operating contract for refs, immutable state, progressive disclosure, actions, batching, browser roots, and parallel calls.",
+      "sourcePath": "src/bridge.ts",
+      "requiredSymbols": [
+        "find_roots",
+        "observe_ui",
+        "act_ui",
+        "stateId"
+      ]
+    },
+    {
+      "key": "reference/configuration",
+      "outputPath": "docs/content/docs/reference/configuration.mdx",
+      "title": "Configuration",
+      "description": "Configuration files, options, environment variables, and browser support reference.",
+      "sourcePath": "src/config.ts",
+      "requiredSymbols": [
+        "DEFAULT_CONFIG",
+        "browser_use",
+        "headless",
+        "managed_browser"
+      ]
+    },
+    {
+      "key": "reference/platforms/windows",
+      "outputPath": "docs/content/docs/reference/platforms/windows.mdx",
+      "title": "Windows bridge reference",
+      "description": "Windows backend contract, UIA behavior, refs, actions, deltas, protocol, and constraints.",
+      "sourcePath": "native/windows/bridge-rs/src/lib.rs",
+      "requiredSymbols": [
+        "protocol",
+        "uia",
+        "capture",
+        "input"
+      ]
+    }
+  ]
+}

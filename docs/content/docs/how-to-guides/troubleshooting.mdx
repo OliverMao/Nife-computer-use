@@ -1,0 +1,106 @@
+---
+title: 'Troubleshoot setup and runtime failures'
+description: 'Repair Windows helper installation, capture, stale state, and action delivery problems.'
+---
+
+Start with `/computer-use` in Nife to confirm the active configuration and its source. For UI Automation behavior, use the [Windows bridge reference](../reference/platforms/windows.mdx).
+
+Nife always talks to the Windows helper. On Windows it starts the helper directly; inside WSL it starts the same executable through WSL interop, so the Windows desktop session is what the helper observes.
+
+## Repair a missing Windows helper
+
+The runtime needs this executable:
+
+```text
+~/.nife/agent/helpers/nife-computer-use/windows-bridge.exe
+```
+
+Set `NIFE_COMPUTER_USE_WINDOWS_HELPER_PATH` to use an explicit location. Install the committed prebuilt helper with:
+
+```bash
+node scripts/setup-helper.mjs --platform windows
+```
+
+The installer hashes the prebuilt binary and only replaces the installed copy when it differs, so rerunning it is safe. If the prebuilt is missing, rebuild it:
+
+```bash
+node scripts/build-native.mjs --platform windows
+```
+
+On Windows that uses the local Rust toolchain. Inside WSL it uses `cargo.exe` from the Windows installation (set `NIFE_WINDOWS_CARGO` to override the path).
+
+Check the helper directly:
+
+```bash
+echo '{"protocolVersion":4,"id":"1","cmd":"diagnostics","args":{}}' | ~/.nife/agent/helpers/nife-computer-use/windows-bridge.exe
+```
+
+A healthy helper answers with `"ok":true` and `"os":"windows"`.
+
+## Confirm WSL interop
+
+Inside WSL, run:
+
+```bash
+cmd.exe /c echo ok
+```
+
+If that fails, Windows interoperability is disabled for the distribution and the helper cannot be started. Enable it in `/etc/wsl.conf`:
+
+```ini
+[interop]
+enabled = true
+```
+
+then restart WSL. nife detects WSL through `WSL_DISTRO_NAME`, `WSL_INTEROP`, or `/proc/version`.
+
+## Fix an empty UI Automation tree
+
+Confirm the target window is still open and not minimized, then observe again. Some controls expose almost nothing through UI Automation; inspect the target in `fused` or `visual` mode:
+
+```ts
+observe_ui({ root: "@r1", mode: "fused" })
+```
+
+The helper can only report what the target exposes through UI Automation. OCR can add visual text evidence, but OCR-only `pictureOnly` nodes are not semantic action targets.
+
+## Fix a failed or black window capture
+
+Confirm that:
+
+- the target still has an open window;
+- the window is not minimized or cloaked;
+- the window was not closed between discovery and observation;
+- the helper runs in the same Windows session as the target (not a disconnected RDP or locked desktop).
+
+Screen capture of elevated windows may be blocked when the helper is not elevated.
+
+## Handle strict headless rejection
+
+`headless: true` keeps every action in the accessibility layer. Coordinate targeting, `typeText`, and `keypress` fail with `foreground_required` before any synthesized input is posted, and the bridge does not retry them in the foreground.
+
+Use a semantic ref when the target exposes the required action. If the workflow genuinely needs synthesized events, run that action without strict headless mode.
+
+## Recover from stale state or refs
+
+A mutation must use the `stateId` that owns its refs and must still match the resource epoch. Use the successor state returned by `act_ui`. If another actor changed the app, the state was evicted, or the target identity is uncertain, call `observe_ui` and resolve the target again.
+
+## Recover from rejected coordinates
+
+Coordinates are image pixels owned by one image-bearing state. Observe again if the window moved, resized, changed, or was replaced.
+
+## Enable browser windows
+
+If browser roots are refused, run `/computer-use`. When `browser_use` is disabled, enable it in the project or global configuration:
+
+```json
+{
+  "browser_use": true
+}
+```
+
+If `launch_browser` cannot find the selected browser, set `NIFE_COMPUTER_USE_CHROME_EXECUTABLE` or `NIFE_COMPUTER_USE_HELIUM_EXECUTABLE` to an executable absolute path. A manual Chromium CDP launch needs both `--remote-debugging-port` and a non-default `--user-data-dir`.
+
+## Use an unlocked interactive desktop
+
+Windows UI Automation and synthesized input need a logged-in, unlocked desktop session. A locked screen, a disconnected RDP session, or a session-0 service context will fail even though the helper itself answers diagnostics.

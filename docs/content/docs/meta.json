@@ -1,0 +1,5 @@
+{
+  "title": "nife-computer-use",
+  "root": true,
+  "pages": ["index", "tutorials", "how-to-guides", "explanation", "reference"]
+}

@@ -1,0 +1,91 @@
+---
+title: 'Develop and validate changes'
+description: 'Repository layout, validation, and Windows helper development.'
+---
+
+## Repository layout
+
+```text
+extensions/computer-use.ts       Public Nife tool registration
+src/bridge.ts                    TypeScript runtime and tool implementation
+src/actions.ts                   Action preparation and result reconciliation
+src/runtime.ts                   Immutable state store and resource scheduler
+src/state.ts                     Saved UI state ownership and restoration
+src/view.ts                      Stable refs and resulting-state change views
+src/outline.ts                   Outline parsing, folding, control lists, search, and ref mapping
+src/note.ts                      Disposable running-note generation
+src/platform/index.ts            Platform selection (Windows, including WSL interop)
+native/windows/bridge-rs/        Windows helper (Rust, UI Automation)
+prebuilt/windows/                Committed Windows helper binary installed at runtime
+scripts/build-native.mjs         Windows helper build script
+scripts/setup-helper.mjs         Windows helper install script
+scripts/check-invariants.mjs     Architecture invariant checks
+scripts/check-runtime-concurrency.mjs Scheduler/state concurrency checks
+scripts/nife-cubench-agent.mjs     Cubench gateway adapter using registered Nife tools
+```
+
+The public tool surface lives in `extensions/computer-use.ts`. Keep it small. Internal complexity belongs in `src/bridge.ts`, `src/outline.ts`, `src/note.ts`, and the native helper.
+
+## Checks
+
+Run all static checks:
+
+```bash
+npm test
+```
+
+This runs TypeScript, generated documentation checks, tool-schema compatibility checks, architecture invariants, and Windows script checks. After changing a tool definition or a source-owned `PI_DOCS_REFERENCE` block, run `npm run docs:generate` and commit the regenerated pages.
+
+Rebuild the native helper after Rust changes:
+
+```bash
+npm run build:windows
+```
+
+On Windows the script uses the local Rust toolchain. Inside WSL it uses `cargo.exe` from the Windows installation, builds in the Windows temp directory, and copies the resulting `windows-bridge.exe` back to `prebuilt/windows/`.
+
+## Architecture rules
+
+The runtime is state-scoped and outline-first:
+
+- `observe_ui` returns a compact control list and running note; `detail: "outline"` returns the folded outline.
+- `search_ui`, `expand_ui`, and `inspect_ui` provide progressive disclosure.
+- `act_ui` is the only public desktop action entrypoint.
+- UI observations are immutable records; request-local hydration replaces global current state.
+- Cached queries bypass scheduling; live work is ordered per physical resource.
+- Browser pages and desktop surfaces share the `@r` root forest and `@e` outline contract.
+- The helper owns grounding, preflight, execution, and verification.
+- Removed direct tools such as `screenshot`, `click`, `set_text`, and `computer_actions` should not reappear as public extension tools.
+
+Run invariants after architecture changes:
+
+```bash
+npm run test:invariants
+```
+
+## Cubench
+
+`scripts/nife-cubench-agent.mjs` drives a headed Cubench Chromium window through the same registered Nife tools used by the extension. Cubench must launch its web driver headed (the current development tree accepts `CUBENCH_HEADLESS=0`):
+
+```bash
+CUBENCH_HEADLESS=0 node ../cubench/bin/cubench.mjs suite run \
+  --suite ../cubench/suites/core.json \
+  --agent "node --experimental-transform-types $PWD/scripts/nife-cubench-agent.mjs" \
+  --driver web \
+  --trials 3 \
+  --label picu
+```
+
+The adapter uses Cubench only for the instruction and final oracle; UI observation and action go through `nife-computer-use`. Gateway action/observation counters therefore do not trigger Cubench interference hooks, so stale/reorder cases need a native-driver integration before their interference timing can be treated as benchmark evidence.
+
+## Native Windows helper
+
+The helper is a Rust executable (`native/windows/bridge-rs/`) that speaks JSON lines over stdin/stdout and drives UI Automation, capture, and input. The installed copy lives at:
+
+```text
+~/.nife/agent/helpers/nife-computer-use/windows-bridge.exe
+```
+
+`prebuilt/windows/windows-bridge.exe` is committed so installs never need a Rust toolchain. `npm run build:windows` rebuilds it, and `npm run test:windows-scripts` checks that the installer, the runtime path, and the prebuilt artifact stay aligned.
+
+The helper protocol version is shared between Rust and TypeScript: `native/windows/bridge-rs/src/protocol.rs` and `WINDOWS_HELPER_PROTOCOL_VERSION` in `src/platform/windows/helper.ts` must match, and `npm run test:invariants` fails when they drift.
